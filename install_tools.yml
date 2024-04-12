@@ -1,0 +1,45 @@
+---
+- name: Install tools on multiple machines
+  hosts: all
+  become: yes  
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+      tags: update
+
+    - name: Upgrade packages
+      apt:
+        upgrade: yes
+      tags: update
+
+    - name: Install Java
+      apt:
+        name: openjdk-17-jdk
+        state: present
+      tags: java
+
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+      tags: git
+
+    - name: Install Maven
+      apt:
+        name: maven
+        state: present
+      tags: maven
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+      tags: docker
+
+    - name: Install Docker-compose
+      apt:
+        name: docker-compose
+        state: present
+      tags: docker-compose
+

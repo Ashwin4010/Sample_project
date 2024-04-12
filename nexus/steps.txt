@@ -1,0 +1,5 @@
+1. sudo usermod -aG docker $USER
+
+to find the password
+
+sudo docker exec -it ubuntu_nexus_1 cat /nexus-data/admin.password
