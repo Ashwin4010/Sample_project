@@ -1,0 +1,96 @@
+pipeline {
+  agent any
+
+  stages {
+    stage('Checkout code') {
+      steps {
+        sh 'touch hello.txt'
+        checkout scmGit(branches: [
+          [name: '*/main']
+        ], extensions: [], userRemoteConfigs: [
+          [url: 'https://github.com/Ashwin4010/Devops.git']
+        ])
+      }
+    }
+    stage('Install Maven Build Tool') {
+      steps {
+        sh 'wget https://dlcdn.apache.org/maven/maven-3/3.9.4/binaries/apache-maven-3.9.4-bin.tar.gz'
+        sh 'echo "root" | sudo -S tar -xzvf /var/lib/jenkins/workspace/sonarqube_sample/apache-maven-3.9.4-bin.tar.gz'
+      }
+    }
+    stage('Compile Sample Application') {
+      steps {
+        dir('/var/lib/jenkins/workspace/sonarqube_sample/addressbook/addressbook_main') {
+          sh '/var/lib/jenkins/workspace/sonarqube_sample/apache-maven-3.9.4/bin/mvn compile'
+        }
+      }
+    }
+    stage('Test Sample Application') {
+      steps {
+        dir('/var/lib/jenkins/workspace/sonarqube_sample/addressbook/addressbook_main') {
+          sh '/var/lib/jenkins/workspace/sonarqube_sample/apache-maven-3.9.4/bin/mvn test'
+        }
+      }
+    }
+    stage('code analysis sonar') {
+      steps {
+        dir('/var/lib/jenkins/workspace/sonarqube_sample/addressbook/addressbook_main') {
+          withSonarQubeEnv(credentialsId: 'sonar-token', installationName: 'sonar') {
+            sh "/var/lib/jenkins/workspace/sonarqube_sample/apache-maven-3.9.4/bin/mvn clean verify sonar:sonar -Dsonar.projectKey=sample -Dsonar.projectName='sample'"
+          }
+        }
+      }
+    }
+    stage('Package Sample Application') {
+      steps {
+        dir('/var/lib/jenkins/workspace/sonarqube_sample/addressbook/addressbook_main') {
+          sh '/var/lib/jenkins/workspace/sonarqube_sample/apache-maven-3.9.4/bin/mvn package'
+        }
+      }
+    }
+    stage('Docker push') {
+      steps {
+        sh 'echo "root" | sudo -S docker ps -a'
+      }
+    }
+    stage('Build Docker Image') {
+      steps {
+        sh 'docker build -t ashwin4010/sample:0.0.2 .'
+      }
+    }
+    stage('Docker Image Push') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'docker', passwordVariable: 'pass', usernameVariable: 'user')]) {
+          //sh 'docker login -u ${user} -p ${pass}'
+          sh 'docker push ashwin4010/sample:0.0.1'
+        }
+      }
+    }
+    stage('Nexus Image Push') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'nexus-cred', passwordVariable: 'pass', usernameVariable: 'user')]){
+        sh 'docker login -u ${user} -p ${pass} localhost:8082'
+        sh 'docker tag ashwin4010/sample:0.0.1 localhost:8082/sample:0.0.1'
+        sh 'docker push localhost:8082/sample:0.0.1'
+      }
+        }
+    }
+    stage('Remove Previous Container') {
+      steps {
+          script {
+            try {
+                sh 'docker rm -f tomcattest'
+            } catch (error) {
+          //  do nothing if there is an exception
+            }
+        }
+      }
+        
+    }
+    stage('Docker deployment') {
+        steps {
+          sh 'docker run -d -p 8091:8080 --name tomcattest ashwin4010/sample:0.0.1'
+        }
+      }
+    }
+  }
