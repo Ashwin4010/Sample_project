@@ -1,0 +1,1 @@
+use http:prometheus:9090 for grafana datasource
